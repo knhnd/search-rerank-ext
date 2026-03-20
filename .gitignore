@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# TypeScript build output
+dist/
+
+# Environment variables (APIキーのコミットを防ぐ)
+.env
+.env.local
+.env*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Chrome extension package
+*.crx
+*.pem
