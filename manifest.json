@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Search Rerank Extension",
+  "version": "0.1.0",
+  "description": "Google検索結果を並び替える",
+  "permissions": ["storage"],
+  "host_permissions": ["https://www.googleapis.com/*"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Search Reranker"
+  }
+}
