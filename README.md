@@ -23,7 +23,7 @@ TypeScript × Node.js のセットアップ
 - `manifest.json` を作成
   - Chrome 拡張の設定ファイルで必要なことはすべてここに記述
 
-※ TypeScript のビルドによるディレクトリのクリーンアップで `manifest.json` が消えないようにプロジェクトルートなど `dist` 以外に置いておく。
+※ TypeScript のビルドによるディレクトリのクリーンアップで `manifest.json` が消えないようにプロジェクトルートなど `dist` 外に置いておく。
 
 ### Webpack Config
 
@@ -56,6 +56,16 @@ TypeScript × Node.js で Chrome 拡張を開発する場合には、`package.js
 - `content.js` を作成
   - DOM 操作によってページの要素を取得できる
   - DOM はデベロッパツールで確認する
+
+### 検索エンジン関連
+
+#### [Custom Search API](https://developers.google.com/custom-search/v1/overview?hl=ja)
+
+Google が公式で提供する検索エンジンをカスタムするための API（仕様変更によりWeb全体の検索ができなくなったぽい）
+
+#### [プログラム可能な検索エンジン](https://programmablesearchengine.google.com/intl/ja_jp/about/)
+
+カスタマイズ可能な Google 検索ボックスを自分のアプリケーションに組み込めるサービス
 
 ### Links
 
