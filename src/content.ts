@@ -4,24 +4,23 @@ import type { SearchResult, RankedResult } from './types.js';
 function extractSearchResults(): SearchResult[] {
   const results: SearchResult[] = [];
 
-  // Google検索結果の各アイテムを取得
-  // data-snnum属性で順位が取れる
-  const items = document.querySelectorAll('div[data-snnum]');
+  const h3Elements = document.querySelectorAll('h3');
 
-  items.forEach((item, index) => {
-    const titleEl = item.querySelector('h3');
-    const linkEl = item.querySelector('a[href]');
-    const snippetEl = item.querySelector('div[data-sncf]') ?? item.querySelector('.VwiC3b');
-
-    if (!titleEl || !linkEl) return;
+  h3Elements.forEach((h3, index) => {
+    const linkEl = h3.closest('a');
+    if (!linkEl) return; // aタグがないものは除外（11番の'説明'など）
 
     const url = linkEl.getAttribute('href') ?? '';
-    if (!url.startsWith('http')) return; // 広告・内部リンクを除外
+    if (!url.startsWith('http')) return; // 外部リンクのみ対象
+
+    // スニペット：リンクの親要素の中からテキストを探す
+    const container = linkEl.closest('div[class]');
+    const snippetEl = container?.querySelector('div:not(:has(h3)) span');
 
     results.push({
-      title: titleEl.textContent ?? '',
+      title: h3.textContent?.trim() ?? '',
       url,
-      snippet: snippetEl?.textContent ?? '',
+      snippet: snippetEl?.textContent?.trim() ?? '',
       rank: index + 1,
     });
   });
@@ -50,30 +49,40 @@ function scoreResult(r: SearchResult): number {
 
 // ---- DOMを並び替え順に書き換え ----
 function applyRanking(ranked: RankedResult[]): void {
-  const items = document.querySelectorAll('div[data-snnum]');
-  if (items.length === 0) return;
+  const h3Elements = document.querySelectorAll('h3');
+  const validItems: Element[] = [];
 
-  const parent = items[0].parentElement;
-  if (!parent) return;
+  // aタグを持つh3の親コンテナを収集
+  h3Elements.forEach((h3) => {
+    const linkEl = h3.closest('a');
+    if (!linkEl) return;
+    const url = linkEl.getAttribute('href') ?? '';
+    if (!url.startsWith('http')) return;
 
-  // 並び替え後の順序でDOMを並べ直す
-  const sorted = [...ranked].sort((a, b) => a.newRank - b.newRank);
-
-  sorted.forEach((result) => {
-    const originalIndex = result.rank - 1;
-    const el = items[originalIndex];
-    if (el) parent.appendChild(el); // 末尾に追加することで並び替え
+    // 検索結果1件分のコンテナを取得（なるべく上位の親）
+    const container = linkEl.closest('div[data-hveid]') ?? linkEl.parentElement;
+    if (container && !validItems.includes(container)) {
+      validItems.push(container);
+    }
   });
 
-  // 順位バッジを追加
+  if (validItems.length === 0) return;
+  const parent = validItems[0].parentElement;
+  if (!parent) return;
+
+  // 並び替え
+  const sorted = [...ranked].sort((a, b) => a.newRank - b.newRank);
   sorted.forEach((result) => {
-    const originalIndex = result.rank - 1;
-    const el = items[originalIndex] as HTMLElement;
+    const el = validItems[result.rank - 1];
+    if (el) parent.appendChild(el);
+  });
+
+  // バッジを追加
+  sorted.forEach((result) => {
+    const el = validItems[result.rank - 1] as HTMLElement;
     if (!el) return;
 
-    // 既存バッジを削除
     el.querySelector('.reranker-badge')?.remove();
-
     const badge = document.createElement('div');
     badge.className = 'reranker-badge';
     badge.textContent = `#${result.newRank} (元: #${result.rank})`;
@@ -105,8 +114,83 @@ function main(): void {
 }
 
 // DOMの読み込み完了を待って実行
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message.type === 'RERANK') {
+    try {
+      const results = extractSearchResults();
+      const ranked = rerank(results);
+      applyRanking(ranked);
+      console.log(`[Search ReRank Extension] ${ranked.length}件を並び替え完了`);
+      sendResponse({ success: true, count: ranked.length });
+    } catch (e) {
+      console.error('[Search ReRank Extension]', e);
+      sendResponse({ success: false });
+    }
+  }
+  return true; // 非同期レスポンスのために必要
+});
+
+// ---- フローティングボタンをページに追加 ----
+function addFloatingButton(): void {
+  // 既存のボタンがあれば追加しない
+  if (document.getElementById('rerank-floating-btn')) return;
+
+  const btn = document.createElement('button');
+  btn.id = 'rerank-floating-btn';
+  btn.textContent = '🔀 並び替え';
+  btn.style.cssText = `
+    position: fixed;
+    bottom: 32px;
+    right: 32px;
+    z-index: 99999;
+    padding: 12px 20px;
+    background: #1a73e8;
+    color: white;
+    border: none;
+    border-radius: 24px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    transition: background 0.2s, transform 0.1s;
+  `;
+
+  btn.addEventListener('mouseenter', () => {
+    btn.style.background = '#1557b0';
+    btn.style.transform = 'scale(1.05)';
+  });
+  btn.addEventListener('mouseleave', () => {
+    btn.style.background = '#1a73e8';
+    btn.style.transform = 'scale(1)';
+  });
+
+  btn.addEventListener('click', () => {
+    btn.textContent = '⏳ 並び替え中...';
+    btn.setAttribute('disabled', 'true');
+
+    try {
+      const results = extractSearchResults();
+      const ranked = rerank(results);
+      applyRanking(ranked);
+      btn.textContent = '✅ 並び替え完了！';
+      console.log(`[Search ReRank Extension] ${ranked.length}件を並び替え完了`);
+    } catch (e) {
+      btn.textContent = '❌ エラー';
+      console.error('[Search ReRank Extension]', e);
+    }
+
+    setTimeout(() => {
+      btn.textContent = '🔀 並び替え';
+      btn.removeAttribute('disabled');
+    }, 2000);
+  });
+
+  document.body.appendChild(btn);
+}
+
+// ---- DOMの読み込み完了後にボタンを追加 ----
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', main);
+  document.addEventListener('DOMContentLoaded', addFloatingButton);
 } else {
-  main();
+  addFloatingButton();
 }

@@ -2,11 +2,14 @@
   "name": "rerank-ext",
   "version": "1.0.0",
   "scripts": {
-    "build": "tsc",
-    "watch": "tsc --watch"
+    "build": "webpack",
+    "watch": "webpack --watch"
   },
   "devDependencies": {
     "@types/chrome": "^0.0.268",
-    "typescript": "^5.4.0"
+    "ts-loader": "^9.5.4",
+    "typescript": "^5.4.0",
+    "webpack": "^5.105.4",
+    "webpack-cli": "^7.0.2"
   }
 }
